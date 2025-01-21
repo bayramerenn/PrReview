@@ -3,6 +3,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -17,16 +21,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install requests PyGithub
-
-      - name: Get PR Diff
-        id: get-diff
-        run: |
-          gh pr diff ${{ github.event.pull_request.number }} > diff.txt
-          echo "DIFF_PATH=diff.txt" >> $GITHUB_ENV
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run DeepSeek Review
         env:
@@ -34,25 +29,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python deepseek_review.py
-
-      - name: Post Comments
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = require('fs');
-            try {
-              const comments = JSON.parse(fs.readFileSync('comments.json'));
-              await Promise.all(comments.map(comment => 
-                github.rest.pulls.createReviewComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: context.issue.number,
-                  body: comment.comment,
-                  path: comment.path,
-                  line: comment.line,
-                  commit_id: context.payload.pull_request.head.sha
-                })
-              ));
-            } catch (error) {
-              console.error('Yorum gönderilemedi:', error);
-            }
